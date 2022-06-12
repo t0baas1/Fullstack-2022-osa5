@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Blog from './components/Blog'
 import blogService from './services/blogs'
 import loginService from './services/login'
 import Error  from './components/Error'
 import Success from './components/Success'
+import BlogForm from './components/BlogForm'
+import Togglable from './components/Togglable'
 
 const App = () => {
   const [blogs, setBlogs] = useState([])
@@ -11,9 +13,6 @@ const App = () => {
   const [password, setPassword] = useState('')
   // eslint-disable-next-line no-unused-vars
   const [user, setUser] = useState(null)
-  const [newTitle, setNewTitle] = useState('')
-  const [newAuthor, setNewAuthor] = useState('')
-  const [newUrl, setNewUrl] = useState('')
   const [errorMessage, setErrorMessage] = useState(null)
   const [addMessage, setAddMessage] = useState(null)
 
@@ -59,77 +58,56 @@ const App = () => {
     window.localStorage.removeItem('loggedBlogappUser')
   }
 
-  const addBlog = (event) => {
-    event.preventDefault()
-    const blogObject = {
-      title: newTitle,
-      author: newAuthor,
-      url: newUrl
-    }
-
+  const addBlog = (blogObject) => {
+    blogFormRef.current.toggleVisibility()
     blogService
       .create(blogObject)
       .then(returnedBlog => {
         setBlogs(blogs.concat(returnedBlog))
-        setNewTitle('')
-        setNewAuthor('')
-        setNewUrl('')
-        setAddMessage(`a new blog ${newTitle} by ${newAuthor} added`)
+        setAddMessage(`a new blog ${returnedBlog.title} by ${returnedBlog.author} added`)
         setTimeout(() => {
           setAddMessage(null)
         }, 5000)
       })
-
   }
 
-  const handleTitleChange = (event) => {
-    setNewTitle(event.target.value)
+  const addLike = (blog) => {
+
+    const newBlog ={
+      author: blog.author,
+      title: blog.title,
+      url: blog.url,
+      likes: blog.likes+1,
+      user: blog.user
+    }
+
+    blogService
+      .update(blog.id, newBlog)
+      .then(returnedBlog => {
+        setBlogs(blogs.map(blog => blog.id !== returnedBlog.id ? blog : returnedBlog))
+      })
   }
 
-  const handleAuthorChange = (event) => {
-    setNewAuthor(event.target.value)
+  const removeBlog = id => {
+    const blog = blogs.find(b => b.id === id)
+    const confirmRemoval = window.confirm(`remove blog ${blog.title} by author ${blog.author}`)
+
+    if (confirmRemoval) {
+      blogService
+        .deleteBlog(id)
+        .then(() => {
+          setBlogs(blogs.filter(blog => blog.id !== id))
+        })
+    }
   }
 
-  const handleUrlChange = (event) => {
-    setNewUrl(event.target.value)
-  }
+  const blogFormRef = useRef()
 
   const blogForm = () => (
-  <div>
-    <form onSubmit={addBlog}>
-      <div>
-        title:
-        <input
-        type="text"
-        value={newTitle}
-        name="Title"
-        onChange={handleTitleChange}
-        />
-      </div>
-      <div>
-        author:
-        <input
-        type="text"
-        value={newAuthor}
-        name="Author"
-        onChange={handleAuthorChange}
-        />
-      </div>
-      <div>
-        url:
-        <input
-        type="text"
-        value={newUrl}
-        name="Url"
-        onChange={handleUrlChange}
-        />
-      </div>
-      <button type="submit">create</button>
-    </form>
-  </div>
+    <Togglable buttonLabel="create new blog" ref={blogFormRef}>
+      <BlogForm createBlog={addBlog} />
+    </Togglable>
   )
-
-  
 
   if (user === null) {
     return(
@@ -174,8 +152,8 @@ const App = () => {
       
       {blogForm()}
 
-      {blogs.map(blog =>
-        <Blog key={blog.id} blog={blog} />
+      {blogs.sort((a, b) => b.likes - a.likes).map(blog =>
+        <Blog key={blog.id} blog={blog} addLike={addLike} removeBlog={removeBlog} currentUser={user}/>
       )}
     </div>
   )
