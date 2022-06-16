@@ -8,6 +8,10 @@
     margin-bottom: 10px;
 }
 
+.blog {
+  background: lightgrey
+}
+
 .success {
   color: green;
   background: lightgrey;
